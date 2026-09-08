@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Store {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  users            User[]
+  inventory        Inventory[]
+  purchaseOrders   PurchaseOrder[]
+  salesTransactions SalesTransaction[]
+
+  @@map("stores")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  storeId      String?   @map("store_id")
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String?
+  role         String
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  store              Store?               @relation(fields: [storeId], references: [id])
+  salesTransactions  SalesTransaction[]
+  auditLogs          AuditLog[]
+
+  @@map("users")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  sku         String   @unique
+  name        String
+  description String?
+  category    String?
+  price       Float
+  cost        Float?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  inventory              Inventory[]
+  purchaseOrderItems     PurchaseOrderItem[]
+  salesTransactionItems  SalesTransactionItem[]
+
+  @@map("products")
+}
+
+model Inventory {
+  id           String   @id @default(uuid())
+  productId    String   @map("product_id")
+  storeId      String   @map("store_id")
+  quantity     Int      @default(0)
+  reorderPoint Int      @default(0) @map("reorder_point")
+  updatedAt    DateTime @default(now()) @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id])
+  store   Store   @relation(fields: [storeId], references: [id])
+
+  @@unique([productId, storeId])
+  @@map("inventory")
+}
+
+model PurchaseOrder {
+  id        String   @id @default(uuid())
+  storeId   String   @map("store_id")
+  supplier  String?
+  status    String   @default("draft")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  store  Store               @relation(fields: [storeId], references: [id])
+  items  PurchaseOrderItem[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String  @id @default(uuid())
+  purchaseOrderId String  @map("purchase_order_id")
+  productId       String  @map("product_id")
+  quantity        Int
+  unitCost        Float   @map("unit_cost")
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  product       Product       @relation(fields: [productId], references: [id])
+
+  @@map("purchase_order_items")
+}
+
+model SalesTransaction {
+  id            String   @id @default(uuid())
+  storeId       String   @map("store_id")
+  cashierId     String   @map("cashier_id")
+  total         Float
+  paymentMethod String?  @map("payment_method")
+  status        String   @default("completed")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  store    Store                  @relation(fields: [storeId], references: [id])
+  cashier  User                   @relation(fields: [cashierId], references: [id])
+  items    SalesTransactionItem[]
+
+  @@map("sales_transactions")
+}
+
+model SalesTransactionItem {
+  id            String  @id @default(uuid())
+  transactionId String  @map("transaction_id")
+  productId     String  @map("product_id")
+  quantity      Int
+  unitPrice     Float   @map("unit_price")
+
+  transaction SalesTransaction @relation(fields: [transactionId], references: [id])
+  product     Product          @relation(fields: [productId], references: [id])
+
+  @@map("sales_transaction_items")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  metadata  String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("audit_log")
+}
